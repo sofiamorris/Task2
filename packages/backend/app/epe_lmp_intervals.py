@@ -1,62 +1,92 @@
+import os
 import requests
-import pandas as pd
-from bs4 import BeautifulSoup
-import io
 import time
+from datetime import datetime, timedelta
 
-# Step 1: Base URL for the SPP Market Data
-BASE_URL = "https://portal.spp.org/pages/lmp-by-settlement-location-weis"
+# Base URL for downloading files
+BASE_URL = "https://portal.spp.org/file-browser-api/download/lmp-by-settlement-location-weis"
+BASE_PATH = "/2025/01/By_Interval/"  # Adjust the base path as needed
 
-# Step 2: Fetch the webpage containing the file links
-def fetch_file_links():
-    response = requests.get(BASE_URL)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    
-    # Extract file links (adjust based on website structure)
-    links = [
-        a['href'] for a in soup.find_all('a', href=True)
-        if "csv" in a['href']  # Filter for CSV files
-    ]
-    return links
+# Directory to save the downloaded files
+SAVE_DIR = "spp_data"
+os.makedirs(SAVE_DIR, exist_ok=True)
 
-# Step 3: Download and Process Each File
-def process_file(file_url):
-    response = requests.get(file_url)
-    response.raise_for_status()
-    
-    # Load CSV content into pandas DataFrame
-    data = pd.read_csv(io.StringIO(response.text))
-    
-    # Filter for EPE settlement location
-    epe_data = data[data['Settlement Location'] == 'EPE']
-    
-    # Return filtered data
-    return epe_data[['Interval', 'LMP']]
+# Directory to save filtered EPE data
+EPE_DIR = "epe_data"
+os.makedirs(EPE_DIR, exist_ok=True)
 
-# Step 4: Main Function to Query and Process
-def query_data():
+# Function to generate file path dynamically
+def generate_file_path(date, hour, minute):
+    # Format the file path based on the date and time
+    path= "/2025/01/By_Interval/26/WEIS-RTBM-LMP-SL-202501260805.csv"
+    return path
+
+# Function to download a file
+def download_file(file_path):
+    url = f"{BASE_URL}?path={file_path}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        # Extract the file name and save it
+        file_name = file_path.split("/")[-1]
+        file_save_path = os.path.join(SAVE_DIR, file_name)
+        with open(file_save_path, "wb") as file:
+            file.write(response.content)
+        print(f"Downloaded: {file_name}")
+        return file_save_path
+    else:
+        print(f"Failed to download file: {file_path}, Status Code: {response.status_code}")
+        return None
+
+# Function to filter EPE data
+def filter_epe_data(file_path):
+    print("file_path")
     try:
-        file_links = fetch_file_links()
+        # Read the CSV file
+        with open(file_path, "r") as file:
+            lines = file.readlines()
         
-        # Process the latest file (if sorted by date or priority)
-        if file_links:
-            latest_file = file_links[0]  # Adjust logic if files need ordering
-            print(f"Processing file: {latest_file}")
-            epe_data = process_file(latest_file)
-            print(epe_data)  # Display the results
+        # Extract the header and EPE row
+        header = lines[0]
+        epe_rows = [line for line in lines if "EPE" in line]
+        print(epe_rows)
+        if epe_rows:
+            # Save the filtered data to a new file
+            epe_file_name = f"EPE-{os.path.basename(file_path)}"
+            epe_file_path = os.path.join(EPE_DIR, epe_file_name)
+            with open(epe_file_path, "w") as epe_file:
+                epe_file.write(header)  # Write the header
+                epe_file.writelines(epe_rows)  # Write the EPE rows
+            print(f"EPE data saved to: {epe_file_path}")
         else:
-            print("No files available.")
+            print("No EPE data found in the file.")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error filtering EPE data: {e}")
 
-# Step 5: Schedule the Task Every 5 Minutes
-def run_every_5_minutes():
+# Main function to automate downloads
+def automate_downloads():
     while True:
-        print(f"Running query at {pd.Timestamp.now()}")
-        query_data()
-        print("Waiting for 5 minutes...")
-        time.sleep(300)  # Wait 5 minutes (300 seconds)
+        # Get the current date and time
+        now = datetime.utcnow()
+        date_str = now.strftime("%Y%m%d")
+        hour = now.hour
+        minute = now.minute // 5 * 5  # Round down to the nearest 5 minutes
 
+        # Generate the file path
+        file_path = generate_file_path(date_str, hour, minute)
+
+        try:
+            # Download the file
+            downloaded_file = download_file(file_path)
+            if downloaded_file:
+                # Filter EPE data
+                filter_epe_data(downloaded_file)
+
+        except Exception as e:
+            print(f"Error during download: {e}")
+
+        # Wait for 5 minutes before the next iteration
+        time.sleep(300)  # 300 seconds = 5 minutes
+
+# Start the automation
 if __name__ == "__main__":
-    run_every_5_minutes()
+    automate_downloads()
