@@ -2,14 +2,16 @@ import random
 
 class ElectricCompany:
     def __init__(self):
-        self.grid_demand = random.uniform(50, 100)  # MW
-        self.grid_supply = random.uniform(50, 100)  # MW
+        self.grid_storage = random.uniform(0, 100)  # current grid storage level
+        self.grid_capacity = random.uniform(80, 100) # grid max capacity
+        self.excess_energy = random.uniform(50, 100)  # energy utility receives from community
         self.market_price = random.uniform(-20, 100)  # Simulate market price, can go negative
 
     def monitor_grid(self):
-        """Check the current grid state."""
-        print(f"[Grid] Market Price: ${self.market_price:.2f}/MWh | Demand: {self.grid_demand:.2f} MW | Supply: {self.grid_supply:.2f} MW")
-        return self.grid_demand - self.grid_supply, self.market_price
+        """Check the current grid state and obtain energy level sent to hydrogen storage ."""
+        grid_demand = self.grid_capacity - self.grid_storage
+        grid_excess = self.excess_energy - grid_demand
+        return grid_excess, self.market_price
 
     def send_to_hydrogen_storage(self, excess_power, hydrogen_storage_company):
         """Send excess energy to hydrogen storage when market price is negative."""
@@ -23,11 +25,10 @@ class ElectricCompany:
 
     def control_system(self, home, hydrogen_storage_company):
         """Manage the electric company system and interact with the home."""
-        grid_deficit, self.market_price = self.monitor_grid()
+        grid_excess, self.market_price = self.monitor_grid()
 
-        if grid_deficit > 0:  # Grid demand exceeds supply, market price may be negative
-            excess_power = home.control_system()  # Home handles its power first
-            excess_power = self.send_to_hydrogen_storage(excess_power, hydrogen_storage_company)
+        if grid_excess > 0:  # Grid demand exceeds supply, market price may be negative
+            excess_power = self.send_to_hydrogen_storage(grid_excess, hydrogen_storage_company)
             print(f"[Grid] Excess power after storage: {excess_power:.2f} kW")
         else:
             print(f"[Grid] No excess power; grid is balanced.")
