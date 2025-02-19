@@ -17,11 +17,12 @@ class HomePanel:
         self.local_consumption = round(random.uniform(3, 12), 2)
         print(f"[Home] Local consumption: {self.local_consumption} kW")
 
-    def export_to_grid(self, excess_power):
+    def export_to_grid(self, net_power):
         """Export electricity to the grid."""
-        exportable = max(0, min(excess_power, self.export_limit))
+        exportable = max(0, min(net_power, self.export_limit))
         print(f"[Home] Exported {exportable:.2f} kW to the grid.")
-        return excess_power - exportable
+        # change so that electric company will know that the grid receives "5 kw"
+        return net_power - exportable
 
     def control_system(self):
         """Manage the home system."""
@@ -33,6 +34,9 @@ class HomePanel:
         print(f"[Home] Net power: {net_power:.2f} kW")
 
         if net_power > 0:
-            self.export_to_grid(net_power)
-
-        return net_power
+            storage_power = self.export_to_grid(net_power)
+            # return value sent to grid
+        else:
+            # receive from grid function
+            # return value needed from grid
+        return storage_power

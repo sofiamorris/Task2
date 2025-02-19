@@ -3,9 +3,9 @@ import requests
 import time
 from datetime import datetime, timedelta
 
+
 # Base URL for downloading files
 BASE_URL = "https://portal.spp.org/file-browser-api/download/lmp-by-settlement-location-weis"
-BASE_PATH = "/2025/01/By_Interval/"  # Adjust the base path as needed
 
 # Directory to save the downloaded files
 SAVE_DIR = "spp_data"
@@ -16,9 +16,9 @@ EPE_DIR = "epe_data"
 os.makedirs(EPE_DIR, exist_ok=True)
 
 # Function to generate file path dynamically
-def generate_file_path(date, hour, minute):
+def generate_file_path(year, month, day, hour, minute):
     # Format the file path based on the date and time
-    path= "/2025/01/By_Interval/26/WEIS-RTBM-LMP-SL-202501260805.csv"
+    path= f"/{year}/{month}/By_Interval/{day}/WEIS-RTBM-LMP-SL-{year}{month}{day}{hour}{minute}.csv"
     return path
 
 # Function to download a file
@@ -66,13 +66,15 @@ def filter_epe_data(file_path):
 def automate_downloads():
     while True:
         # Get the current date and time
-        now = datetime.utcnow()
-        date_str = now.strftime("%Y%m%d")
+        now = datetime.now()
+        year = now.year
+        month = f"{now.month:02d}"
+        day = f"{now.day:02d}"
         hour = now.hour
-        minute = now.minute // 5 * 5  # Round down to the nearest 5 minutes
+        minute = now.minute // 5 * 5
 
         # Generate the file path
-        file_path = generate_file_path(date_str, hour, minute)
+        file_path = generate_file_path(year, month, day, hour, minute)
 
         try:
             # Download the file
