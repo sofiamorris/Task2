@@ -18,7 +18,7 @@ os.makedirs(EPE_DIR, exist_ok=True)
 # Function to generate file path dynamically
 def generate_file_path(year, month, day, hour, minute):
     # Format the file path based on the date and time
-    path= f"/{year}/{month}/By_Interval/{day}/WEIS-RTBM-LMP-SL-{year}{month}{day}{hour}{minute}.csv"
+    path= f"/{year}/{month}/By_Interval/{day}/WEIS-RTBM-LMP-SL-{year}{month}{day}{hour}00.csv"
     return path
 
 # Function to download a file
@@ -63,10 +63,9 @@ def filter_epe_data(file_path):
         print(f"Error filtering EPE data: {e}")
 
 # Main function to automate downloads
-def automate_downloads():
-    while True:
+def automate_downloads(days_ago):
         # Get the current date and time
-        now = datetime.now()
+        now = datetime.now() - timedelta(days=days_ago)
         year = now.year
         month = f"{now.month:02d}"
         day = f"{now.day:02d}"
@@ -86,9 +85,7 @@ def automate_downloads():
         except Exception as e:
             print(f"Error during download: {e}")
 
-        # Wait for 5 minutes before the next iteration
-        time.sleep(300)  # 300 seconds = 5 minutes
 
 # Start the automation
 if __name__ == "__main__":
-    automate_downloads()
+    automate_downloads(1)
