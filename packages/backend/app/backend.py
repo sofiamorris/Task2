@@ -3,12 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class EnergyManager:
-    def __init__(self, mWh_to_kg_conversion_factor=0.05, electrolyzer_efficiency=0.7, fuel_cell_efficiency=0.5,
+    def __init__(self, mWh_to_kg_conversion_factor=0.057, kg_to_mWh_conversion_factor=0.0336,
                  max_electrolyzer_power=10_000, max_fuel_cell_power=5_000, hydrogen_sale_price=3):
         self.hydrogen_tank = 0.0  
         self.mWh_to_kg_hydrogen = mWh_to_kg_conversion_factor
-        self.electrolyzer_efficiency = electrolyzer_efficiency
-        self.fuel_cell_efficiency = fuel_cell_efficiency
+        self.kg_to_mWh_hydrogen = kg_to_mWh_conversion_factor
         self.max_electrolyzer_power = max_electrolyzer_power
         self.max_fuel_cell_power = max_fuel_cell_power
         self.hydrogen_sale_price = hydrogen_sale_price  
@@ -17,7 +16,7 @@ class EnergyManager:
         self.money_spent = 0.0
         self.total_excess_energy = 0.0
         self.total_demand = 0.0
-        self.max_hydrogen_tank_capacity = 112500
+        self.max_hydrogen_tank_capacity = 15000
 
     def process_energy(self, timestamp, solar_generation, net_generation, demand, LMP, next_day_LMP):
         excess_energy = max(0, solar_generation - demand)
@@ -29,37 +28,43 @@ class EnergyManager:
 
         if excess_energy > 0:
             if LMP <= 0:
-                max_hydrogen_to_store = (self.max_electrolyzer_power * self.electrolyzer_efficiency) / self.mWh_to_kg_hydrogen
-                potential_hydrogen = (excess_energy * self.electrolyzer_efficiency) / self.mWh_to_kg_hydrogen
+                potential_hydrogen = excess_energy * self.mWh_to_kg_hydrogen
                 
                 # Ensure we do not exceed the tank capacity
-                hydrogen_to_store = min(potential_hydrogen, max_hydrogen_to_store, self.max_hydrogen_tank_capacity - self.hydrogen_tank)
+                hydrogen_to_store = min(potential_hydrogen, self.max_electrolyzer_power, self.max_hydrogen_tank_capacity - self.hydrogen_tank)
 
                 # Store in the hydrogen tank
                 self.hydrogen_tank += hydrogen_to_store
 
                 energy_stored_mWh = hydrogen_to_store * self.mWh_to_kg_hydrogen  # Convert back to mWh
-                self.money_saved += abs(LMP) * energy_stored_mWh
             else:
                 if next_day_LMP <= LMP:
                     self.money_earned += LMP * excess_energy
 
         else:
-            max_hydrogen_used = (self.max_fuel_cell_power / self.mWh_to_kg_hydrogen) / self.fuel_cell_efficiency
-            hydrogen_needed = deficit_energy / (self.mWh_to_kg_hydrogen * self.fuel_cell_efficiency)
-            hydrogen_used = min(hydrogen_needed, max_hydrogen_used, self.hydrogen_tank)
+            hydrogen_needed = deficit_energy / self.kg_to_mWh_hydrogen
+            hydrogen_used = min(hydrogen_needed, self.max_fuel_cell_power, self.hydrogen_tank)
+            # print(f"hydrogen tank: {self.hydrogen_tank}")
+            # print(f"max used: {max_hydrogen_used}")
+            # print(f"hydrogen needed: {hydrogen_needed}")
+            # print(f"hydrogen used: {hydrogen_used}")
+
             self.hydrogen_tank -= hydrogen_used
-            energy_provided = hydrogen_used * self.mWh_to_kg_hydrogen * self.fuel_cell_efficiency
+            energy_provided = hydrogen_used / self.kg_to_mWh_hydrogen
+            self.money_saved += abs(LMP) * energy_provided
+
             remaining_deficit = deficit_energy - energy_provided
             
             if remaining_deficit > 0:
                 if LMP < 50:  
                     self.money_spent += LMP * remaining_deficit 
+                    # print(f"spending: {LMP * remaining_deficit}")
+
         
-        if self.hydrogen_sale_price * self.hydrogen_tank > LMP * (self.hydrogen_tank * self.mWh_to_kg_hydrogen * self.fuel_cell_efficiency):
-            sell_amount = self.hydrogen_tank * 0.2  # Sell only 20% of the stored hydrogen
-            self.money_earned += sell_amount * self.hydrogen_sale_price
-            self.hydrogen_tank -= sell_amount
+        # if self.hydrogen_sale_price * self.hydrogen_tank > LMP * (self.hydrogen_tank / self.kg_to_mWh_hydrogen):
+        #     sell_amount = self.hydrogen_tank * 0.2  # Sell only 20% of the stored hydrogen
+        #     self.money_earned += sell_amount * self.hydrogen_sale_price
+        #     self.hydrogen_tank -= sell_amount
 
         
         net_energy_revenue = self.money_earned + self.money_saved - self.money_spent
@@ -76,7 +81,7 @@ class EnergyManager:
         }
 
 # Load real-time data
-data = pd.read_csv("iid_merged_data.csv")
+data = pd.read_csv("epe_merged_data.csv")
 data = data.dropna(subset=['demand'])
 
 manager = EnergyManager()
