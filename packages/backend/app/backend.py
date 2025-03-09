@@ -9,11 +9,11 @@ class EnergyManager:
         self.kg_to_MWh_hydrogen = kg_to_MWh_conversion_factor
         self.hydrogen_sale_price = hydrogen_sale_price  
         self.money_saved = 0.0
-        self.money_earned = 0.0
-        self.money_spent = 0.0
+        self.money_spent_tank = 0.0
+        self.money_spent_notank = 0.0
         self.total_excess_energy = 0.0
         self.total_demand = 0.0
-        self.max_hydrogen_tank_capacity = 15000
+        self.max_hydrogen_tank_capacity = 112500
 
     def process_energy(self, timestamp, solar_generation, net_generation, demand, LMP, next_day_LMP):
         excess_energy = max(0, solar_generation - demand)
@@ -21,6 +21,9 @@ class EnergyManager:
 
         self.total_excess_energy += excess_energy
         self.total_demand += demand
+
+        if deficit_energy > 0:
+            self.money_spent_notank += LMP * deficit_energy
 
         if excess_energy > 0:
             potential_hydrogen = excess_energy * self.MWh_to_kg_hydrogen
@@ -37,31 +40,29 @@ class EnergyManager:
             self.money_saved += abs(LMP) * energy_provided
 
             remaining_deficit = deficit_energy - energy_provided
-            if remaining_deficit > 0 and LMP < 50:
-                self.money_spent += LMP * remaining_deficit 
+            if remaining_deficit > 0:
+                self.money_spent_tank += LMP * remaining_deficit 
 
         # # Sell hydrogen if profitable
         # if self.hydrogen_sale_price * self.hydrogen_tank > LMP * (self.hydrogen_tank / self.kg_to_MWh_hydrogen):
-        #     sell_amount = self.hydrogen_tank * 0.2
+        #     sell_amount = self.hydrogen_tank * 0.1
         #     self.money_earned += sell_amount * self.hydrogen_sale_price
         #     self.hydrogen_tank -= sell_amount
 
-        net_energy_revenue = self.money_earned + self.money_saved - self.money_spent
 
         return {
             "timestamp": timestamp,
             "money_saved": self.money_saved,
-            "money_earned": self.money_earned,
-            "money_spent": self.money_spent,
-            "net_energy_revenue": net_energy_revenue,
+            "money_spent_tank": self.money_spent_tank,
             "hydrogen_tank": self.hydrogen_tank,
             "excess_energy": self.total_excess_energy,
-            "demand": self.total_demand
+            "demand": self.total_demand,
+            "money_spent_notank": self.money_spent_notank,
         }
 
 
 # Load real-time data
-data = pd.read_csv("epe_merged_data.csv")
+data = pd.read_csv("banc_merged_data.csv")
 data = data.dropna(subset=['demand'])
 
 manager = EnergyManager()
@@ -79,9 +80,8 @@ results_df = pd.DataFrame(results)
 # Plot results
 plt.figure(figsize=(10, 5))
 plt.plot(results_df["timestamp"], results_df["money_saved"], label="Money Saved", color="green")
-plt.plot(results_df["timestamp"], results_df["money_earned"], label="Money Earned", color="blue")
-plt.plot(results_df["timestamp"], results_df["money_spent"], label="Money Spent", color="red")
-plt.plot(results_df["timestamp"], results_df["net_energy_revenue"], label="Net Energy Revenue", color="purple", linestyle="--")
+plt.plot(results_df["timestamp"], results_df["money_spent_tank"], label="Money Spent Using Storage", color="red")
+plt.plot(results_df["timestamp"], results_df["money_spent_notank"], label="Money Spent Without Storage", color="blue")
 plt.xlabel("Timestamp")
 plt.ylabel("Dollars ($)")
 plt.title("Financial Impact of Hydrogen Storage System")
@@ -114,25 +114,17 @@ print(f"Average Demand: {average_of_daily_averages['average_demand']:.2f} MWh")
 print(f"Average Excess Energy: {average_of_daily_averages['average_excess_energy']:.2f} MWh")
 
 # Final Summary
-final_money_earned = manager.money_earned
-final_money_spent = manager.money_spent
+final_money_spent_tank = manager.money_spent_tank
+final_money_spent_notank = manager.money_spent_notank
 final_money_saved = manager.money_saved
-final_net_revenue = final_money_earned + final_money_saved - final_money_spent
-
-# Final Summary
-final_money_earned = manager.money_earned
-final_money_spent = manager.money_spent
-final_money_saved = manager.money_saved
-final_net_revenue = final_money_earned + final_money_saved - final_money_spent
 
 print("\n===== Final Summary =====")
 print(f"Tank size: {manager.max_hydrogen_tank_capacity:.2f} kg")
 print(f"Total Excess Energy: {manager.total_excess_energy:.2f} MWh")
 print(f"Total Demand: {manager.total_demand:.2f} MWh")
-print(f"Total Money Earned: ${final_money_earned:.2f}")
-print(f"Total Money Spent: ${final_money_spent:.2f}")
+print(f"Total Money Spent Using Storage: ${final_money_spent_tank:.2f}")
+print(f"Total Money Spent Without Storage: ${final_money_spent_notank:.2f}")
 print(f"Total Money Saved: ${final_money_saved:.2f}")
-print(f"Final Net Revenue: ${final_net_revenue:.2f}")
 
 
 plt.tight_layout()
