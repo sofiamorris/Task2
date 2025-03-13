@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class EnergyManager:
-    def __init__(self, MWh_to_kg_conversion_factor=0.057, kg_to_MWh_conversion_factor=0.0336, hydrogen_sale_price=3):
+    def __init__(self, MWh_to_kg_conversion_factor=0.057, kg_to_MWh_conversion_factor=0.0168, hydrogen_sale_price=3):
         self.hydrogen_tank = 0.0  
         self.MWh_to_kg_hydrogen = MWh_to_kg_conversion_factor
         self.kg_to_MWh_hydrogen = kg_to_MWh_conversion_factor
@@ -14,7 +14,7 @@ class EnergyManager:
         self.money_spent_notank = 0.0
         self.total_excess_energy = 0.0
         self.total_demand = 0.0
-        self.max_hydrogen_tank_capacity = 15000
+        self.max_hydrogen_tank_capacity = 12000
         # self.hydrogen_unable_to_store = 0
 
 
@@ -31,7 +31,7 @@ class EnergyManager:
             self.money_spent_notank += LMP * deficit_energy
 
         if excess_energy > 0:
-            potential_hydrogen = excess_energy * self.MWh_to_kg_hydrogen
+            potential_hydrogen = excess_energy / self.MWh_to_kg_hydrogen
             
             hydrogen_to_store = min(potential_hydrogen, self.max_hydrogen_tank_capacity - self.hydrogen_tank)
             hydrogen_unable_to_store = potential_hydrogen - hydrogen_to_store
@@ -43,7 +43,7 @@ class EnergyManager:
                 
             # # Sell hydrogen if profitable
             if self.hydrogen_sale_price * self.hydrogen_tank > LMP * (self.hydrogen_tank / self.kg_to_MWh_hydrogen):
-                sell_amount = self.hydrogen_tank
+                sell_amount = self.hydrogen_tank * 0.7
                 self.money_earned += sell_amount * self.hydrogen_sale_price
                 self.hydrogen_tank -= sell_amount
 
